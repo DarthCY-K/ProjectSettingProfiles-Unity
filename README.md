@@ -2,12 +2,12 @@
 
 ## Installation / 安装
 
-- Unity Package Manager (Git): **Window > Package Manager > + > Add package from git URL** and enter `https://your-host/your-repo.git?path=/Packages/com.projectsettingprofiles.editor`. Replace the repository URL with the URL of the Git repository containing this project. Unity requires Git to be installed locally. The repository root is a Unity project; the `?path=` suffix is required.
-- `.unitypackage`: import `Dist/ProjectSettingProfiles-1.0.0.unitypackage` using **Assets > Import Package > Custom Package**. It installs the editor scripts under `Assets/ProjectSettingProfiles/`.
+- Unity Package Manager (Git): **Window > Package Manager > + > Add package from git URL** and enter `https://your-host/your-plugin-repo.git`. Replace the URL with the published repository address. The repository root contains `package.json`, so no `?path=` suffix is needed. Unity requires Git to be installed locally.
+- `.unitypackage`: import the separately exported `ProjectSettingProfiles-1.0.0.unitypackage` using **Assets > Import Package > Custom Package**. In the development Unity project it is located at `Dist/ProjectSettingProfiles-1.0.0.unitypackage` and installs under `Assets/ProjectSettingProfiles/`.
 - Choose **one** installation method per project. Installing both creates duplicate editor classes and menus. Neither distribution includes your profiles in `<project>/ProjectSettingsProfiles/`.
-- To rebuild the `.unitypackage` from the UPM source, run `powershell -ExecutionPolicy Bypass -File Tools/Export-ProjectSettingProfiles.ps1` from the repository root.
+- The Git repository contains only the UPM package. The development Unity project keeps its `.unitypackage` export and `Tools/Export-ProjectSettingProfiles.ps1` outside this package repository.
 
-Git 安装请在包管理器中使用上述带 `?path=` 的仓库 URL；传统导入请使用 `Dist` 下的 `.unitypackage`。两种方式不能同时安装。档案数据不会包含在分发包中。
+Git 安装请在包管理器中直接使用插件仓库 URL，无须 `?path=`；传统导入请使用单独导出的 `.unitypackage`。两种方式不能同时安装。档案数据不会包含在分发包中。
 
 ## 简体中文
 
