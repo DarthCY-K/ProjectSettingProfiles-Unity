@@ -11,6 +11,7 @@ namespace ProjectSettingProfiles
         private static readonly string[] Languages = { "English", "简体中文" };
         private readonly HashSet<string> selected = new HashSet<string>();
         private readonly Dictionary<string, string> names = new Dictionary<string, string>();
+        private readonly Dictionary<string, string> outputFolderNames = new Dictionary<string, string>();
         private readonly Dictionary<string, BuildTarget> targets = new Dictionary<string, BuildTarget>();
         private List<Profile> profiles = new List<Profile>();
         private string newName;
@@ -23,7 +24,7 @@ namespace ProjectSettingProfiles
 
         private void OnEnable()
         {
-            minSize = new Vector2(760, 240);
+            minSize = new Vector2(950, 240);
             newTarget = EditorUserBuildSettings.activeBuildTarget;
             if (string.IsNullOrEmpty(newName)) newName = ProfileText.T("新档案", "New Profile");
             nameLanguage = ProfileText.IsChinese;
@@ -39,6 +40,7 @@ namespace ProjectSettingProfiles
             foreach (var profile in profiles)
             {
                 names[profile.id] = profile.name;
+                outputFolderNames[profile.id] = profile.outputFolderName ?? "";
                 targets[profile.id] = profile.target;
             }
             selected.RemoveWhere(id => profiles.All(p => p.id != id));
@@ -84,6 +86,13 @@ namespace ProjectSettingProfiles
             EditorGUILayout.EndHorizontal();
 
             scroll = EditorGUILayout.BeginScrollView(scroll);
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Space(35);
+            GUILayout.Label(ProfileText.T("档案名称", "Profile Name"), GUILayout.Width(180));
+            GUILayout.Label(ProfileText.T("构建目标", "Build Target"), GUILayout.Width(170));
+            GUILayout.Label(new GUIContent(ProfileText.T("输出文件夹", "Output Folder"),
+                ProfileText.T("留空时使用自动名称。", "Leave empty for the automatic name.")), GUILayout.Width(180));
+            EditorGUILayout.EndHorizontal();
             foreach (var profile in profiles)
             {
                 EditorGUILayout.BeginHorizontal();
@@ -94,13 +103,14 @@ namespace ProjectSettingProfiles
                     else selected.Add(profile.id);
                 }
                 GUILayout.Label(ProfileBuildQueue.ActiveId == profile.id ? "●" : " ", GUILayout.Width(15));
-                names[profile.id] = EditorGUILayout.TextField(names[profile.id], GUILayout.MinWidth(120));
+                names[profile.id] = EditorGUILayout.TextField(names[profile.id], GUILayout.Width(180));
                 targets[profile.id] = (BuildTarget)EditorGUILayout.EnumPopup(targets[profile.id], GUILayout.Width(170));
+                outputFolderNames[profile.id] = EditorGUILayout.TextField(outputFolderNames[profile.id], GUILayout.Width(180));
                 using (new EditorGUI.DisabledScope(ProfileBuildQueue.IsBusy))
                 {
                     if (GUILayout.Button(ProfileText.T("保存", "Save"), GUILayout.Width(60))) Execute(() =>
                     {
-                        ProfileStore.Save(profile.id, names[profile.id], targets[profile.id]);
+                        ProfileStore.Save(profile.id, names[profile.id], targets[profile.id], outputFolderNames[profile.id]);
                         Reload();
                     });
                     if (GUILayout.Button(ProfileText.T("切换", "Switch"), GUILayout.Width(60)) &&

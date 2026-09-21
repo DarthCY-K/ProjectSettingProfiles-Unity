@@ -20,11 +20,14 @@ namespace ProjectSettingProfiles
     {
         public string id;
         public string name;
+        public string outputFolderName;
         public BuildTarget target;
         public bool development;
         public bool allowDebugging;
         public bool connectProfiler;
         public bool buildAppBundle;
+        public int buildSettingsVersion;
+        public ProfileBuildSettings buildSettings;
         public List<ProfileFile> files = new List<ProfileFile>();
     }
 
@@ -55,15 +58,20 @@ namespace ProjectSettingProfiles
             var profile = JsonUtility.FromJson<Profile>(File.ReadAllText(Path.Combine(ProfileDirectory(id), Manifest)));
             if (profile == null || profile.id != id || profile.files == null || string.IsNullOrWhiteSpace(profile.name))
                 throw new InvalidDataException(ProfileText.T("档案清单无效：", "Invalid profile manifest: ") + id);
+            if (profile.buildSettingsVersion == 0) profile.buildSettings = null;
+            profile.outputFolderName = NormalizeOutputFolderName(profile.outputFolderName);
             return profile;
         }
 
-        internal static Profile Save(string id, string name, BuildTarget target)
+        internal static Profile Save(string id, string name, BuildTarget target, string outputFolderName = null)
         {
             if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException(ProfileText.T("档案名称不能为空。", "Profile name cannot be empty."));
             if (target == BuildTarget.NoTarget) throw new ArgumentException(ProfileText.T("请选择构建目标。", "Select a build target."));
+            outputFolderName = NormalizeOutputFolderName(outputFolderName);
             if (id == null) id = Guid.NewGuid().ToString("N");
             ValidateId(id);
+            AssetDatabase.SaveAssets();
+            var buildSettings = ProfileBuildSettings.Capture(target);
             Directory.CreateDirectory(ProfilesRoot);
             var stage = Path.Combine(ProfilesRoot, Guid.NewGuid().ToString("N") + ".tmp");
             var destination = ProfileDirectory(id);
@@ -77,11 +85,14 @@ namespace ProjectSettingProfiles
             {
                 id = id,
                 name = name.Trim(),
+                outputFolderName = outputFolderName,
                 target = target,
                 development = EditorUserBuildSettings.development,
                 allowDebugging = EditorUserBuildSettings.allowDebugging,
                 connectProfiler = EditorUserBuildSettings.connectProfiler,
-                buildAppBundle = EditorUserBuildSettings.buildAppBundle
+                buildAppBundle = EditorUserBuildSettings.buildAppBundle,
+                buildSettingsVersion = 1,
+                buildSettings = buildSettings
             };
             Directory.CreateDirectory(Path.Combine(stage, "settings"));
             try
@@ -230,6 +241,20 @@ namespace ProjectSettingProfiles
         private static void ValidateId(string id)
         {
             if (!Guid.TryParseExact(id, "N", out _)) throw new InvalidDataException(ProfileText.T("档案 ID 无效：", "Invalid profile id: ") + id);
+        }
+
+        private static string NormalizeOutputFolderName(string name)
+        {
+            name = (name ?? "").Trim();
+            if (name.Length == 0) return "";
+            var invalid = Path.GetInvalidFileNameChars().Concat(new[] { '/', '\\', ':', '<', '>', '"', '|', '?', '*' }).ToArray();
+            var stem = name.Split('.')[0];
+            if (name == "." || name == ".." || name.EndsWith(".", StringComparison.Ordinal) ||
+                name.IndexOfAny(invalid) >= 0 ||
+                new[] { "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+                    "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9" }.Contains(stem, StringComparer.OrdinalIgnoreCase))
+                throw new ArgumentException(ProfileText.T("输出文件夹名称无效：", "Invalid output folder name: ") + name);
+            return name;
         }
 
         private static string ProfileDirectory(string id) { return Path.Combine(ProfilesRoot, id); }

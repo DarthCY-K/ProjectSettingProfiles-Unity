@@ -95,10 +95,14 @@ namespace ProjectSettingProfiles
                     case "ready":
                         if (EditorUserBuildSettings.activeBuildTarget != profile.target)
                             throw new InvalidOperationException(ProfileText.T("构建目标切换未完成：", "Build target switch did not finish: ") + profile.target);
-                        EditorUserBuildSettings.development = profile.development;
-                        EditorUserBuildSettings.allowDebugging = profile.allowDebugging;
-                        EditorUserBuildSettings.connectProfiler = profile.connectProfiler;
-                        EditorUserBuildSettings.buildAppBundle = profile.buildAppBundle;
+                        if (profile.buildSettings != null) profile.buildSettings.Apply(profile.target);
+                        else
+                        {
+                            EditorUserBuildSettings.development = profile.development;
+                            EditorUserBuildSettings.allowDebugging = profile.allowDebugging;
+                            EditorUserBuildSettings.connectProfiler = profile.connectProfiler;
+                            EditorUserBuildSettings.buildAppBundle = profile.buildAppBundle;
+                        }
                         EditorPrefs.SetString(ActiveKey, profile.id);
                         job.phase = "after-switch";
                         Save(job);
@@ -153,19 +157,35 @@ namespace ProjectSettingProfiles
         {
             var scenes = EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray();
             if (scenes.Length == 0) throw new InvalidOperationException(ProfileText.T("构建设置中没有启用的场景，档案：", "No enabled scenes in Build Settings for ") + profile.name);
-            var folder = Path.Combine(root, SafeName(profile.name) + "_" + profile.target + "_" + profile.id.Substring(0, 8) +
-                "_" + DateTime.UtcNow.ToString("yyyyMMdd_HHmmss_fffffff"));
+            var folder = OutputFolder(profile, root);
             Directory.CreateDirectory(folder);
-            var extension = Extension(profile);
+            var bundle = profile.buildSettings?.GetBool("buildAppBundle", profile.buildAppBundle) ?? profile.buildAppBundle;
+            var extension = Extension(profile.target, bundle);
             var output = extension == null ? Path.Combine(folder, "Build") : Path.Combine(folder, SafeName(PlayerSettings.productName) + extension);
-            var options = profile.development ? BuildOptions.Development : BuildOptions.None;
-            if (profile.development && profile.allowDebugging) options |= BuildOptions.AllowDebugging;
-            if (profile.development && profile.connectProfiler) options |= BuildOptions.ConnectWithProfiler;
+            var settings = profile.buildSettings;
+            var development = settings?.GetBool("development", profile.development) ?? profile.development;
+            var options = development ? BuildOptions.Development : BuildOptions.None;
+            if (development && (settings?.GetBool("allowDebugging", profile.allowDebugging) ?? profile.allowDebugging)) options |= BuildOptions.AllowDebugging;
+            if (development && (settings?.GetBool("connectProfiler", profile.connectProfiler) ?? profile.connectProfiler)) options |= BuildOptions.ConnectWithProfiler;
+            if (development && settings != null && settings.GetBool("buildWithDeepProfilingSupport")) options |= BuildOptions.EnableDeepProfilingSupport;
+            if (settings != null)
+            {
+                if (settings.GetBool("waitForPlayerConnection")) options |= BuildOptions.WaitForPlayerConnection;
+                if (settings.GetBool("buildScriptsOnly")) options |= BuildOptions.BuildScriptsOnly;
+                if (settings.GetBool("symlinkSources")) options |= BuildOptions.SymlinkSources;
+                if (settings.GetBool("symlinkLibraries")) options |= BuildOptions.SymlinkLibraries;
+                if (settings.GetBool("installInBuildFolder")) options |= BuildOptions.InstallInBuildFolder;
+                if (settings.GetBool("enableHeadlessMode")) options |= BuildOptions.EnableHeadlessMode;
+                if (settings.compressionType == 2) options |= BuildOptions.CompressWithLz4;
+                if (settings.compressionType == 3) options |= BuildOptions.CompressWithLz4HC;
+            }
             var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
             {
                 scenes = scenes,
                 locationPathName = output,
                 target = profile.target,
+                subtarget = settings != null && BuildPipeline.GetBuildTargetGroup(profile.target) == BuildTargetGroup.Standalone
+                    ? settings.GetInt("standaloneBuildSubtarget") : 0,
                 options = options
             });
             if (report == null || report.summary.result != BuildResult.Succeeded)
@@ -173,15 +193,15 @@ namespace ProjectSettingProfiles
             Debug.Log(ProfileText.T("档案“" + profile.name + "”已打包至 ", "Built profile '" + profile.name + "' to ") + output);
         }
 
-        private static string Extension(Profile profile)
+        private static string Extension(BuildTarget target, bool buildAppBundle)
         {
-            switch (profile.target)
+            switch (target)
             {
                 case BuildTarget.StandaloneWindows:
                 case BuildTarget.StandaloneWindows64: return ".exe";
                 case BuildTarget.StandaloneLinux64: return ".x86_64";
                 case BuildTarget.StandaloneOSX: return ".app";
-                case BuildTarget.Android: return profile.buildAppBundle ? ".aab" : ".apk";
+                case BuildTarget.Android: return buildAppBundle ? ".aab" : ".apk";
                 default: return null;
             }
         }
@@ -191,6 +211,18 @@ namespace ProjectSettingProfiles
             var invalid = Path.GetInvalidFileNameChars();
             var value = new string((name ?? "Build").Select(c => invalid.Contains(c) ? '_' : c).ToArray()).Trim().TrimEnd('.');
             return string.IsNullOrEmpty(value) ? "Build" : value;
+        }
+
+        private static string OutputFolder(Profile profile, string root)
+        {
+            var name = string.IsNullOrEmpty(profile.outputFolderName)
+                ? SafeName(profile.name) + "_" + profile.target + "_" + profile.id.Substring(0, 8) +
+                    "_" + DateTime.UtcNow.ToString("yyyyMMdd_HHmmss_fffffff")
+                : profile.outputFolderName;
+            var path = Path.Combine(root, name);
+            for (var suffix = 2; Directory.Exists(path) || File.Exists(path); suffix++)
+                path = Path.Combine(root, name + "_" + suffix);
+            return path;
         }
 
         private static void WaitForEditor() { readyAfter = EditorApplication.timeSinceStartup + 0.5; }
