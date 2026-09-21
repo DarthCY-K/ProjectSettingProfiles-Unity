@@ -1,0 +1,12 @@
+{
+  "name": "com.projectsettingprofiles.editor",
+  "version": "1.0.0",
+  "displayName": "Project Setting Profiles",
+  "description": "Save, switch, and batch-build complete ProjectSettings snapshots from the Unity Editor.",
+  "unity": "2022.3",
+  "keywords": [
+    "project settings",
+    "profiles",
+    "build"
+  ]
+}
