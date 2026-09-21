@@ -1,8 +1,10 @@
 # Project Setting Profiles
 
+[图文使用教程（简体中文）](Documentation~/USAGE.md#简体中文教程) / [Illustrated walkthrough (English)](Documentation~/USAGE.md#english-walkthrough)
+
 ## Installation / 安装
 
-- Unity Package Manager (Git): **Window > Package Manager > + > Add package from git URL** and enter `https://your-host/your-plugin-repo.git`. Replace the URL with the published repository address. The repository root contains `package.json`, so no `?path=` suffix is needed. Unity requires Git to be installed locally.
+- Unity Package Manager (Git): **Window > Package Manager > + > Add package from git URL** and enter `https://github.com/DarthCY-K/ProjectSettingProfiles-Unity.git`. The repository root contains `package.json`, so no `?path=` suffix is needed. Unity requires Git to be installed locally.
 - `.unitypackage`: import the separately exported `ProjectSettingProfiles-1.2.0.unitypackage` using **Assets > Import Package > Custom Package**. In the development Unity project it is located at `Dist/ProjectSettingProfiles-1.2.0.unitypackage` and installs under `Assets/ProjectSettingProfiles/`.
 - Choose **one** installation method per project. Installing both creates duplicate editor classes and menus. Neither distribution includes your profiles in `<project>/ProjectSettingsProfiles/`.
 - The Git repository contains only the UPM package. The development Unity project keeps its `.unitypackage` export and `Tools/Export-ProjectSettingProfiles.ps1` outside this package repository.
