@@ -100,6 +100,15 @@ namespace ProjectSettingProfiles
                         EditorUserBuildSettings.connectProfiler = profile.connectProfiler;
                         EditorUserBuildSettings.buildAppBundle = profile.buildAppBundle;
                         EditorPrefs.SetString(ActiveKey, profile.id);
+                        job.phase = "after-switch";
+                        Save(job);
+                        ProfileSwitchEvents.Raise(new ProfileSwitchedEventArgs(profile.id, profile.name, profile.target,
+                            job.build, job.index, job.ids.Length, job.outputDirectory));
+                        WaitForEditor();
+                        break;
+                    case "after-switch":
+                        if (EditorUserBuildSettings.activeBuildTarget != profile.target)
+                            throw new InvalidOperationException(ProfileText.T("回调后构建目标发生变化：", "Build target changed after callback: ") + profile.target);
                         if (job.build)
                         {
                             job.phase = "building";

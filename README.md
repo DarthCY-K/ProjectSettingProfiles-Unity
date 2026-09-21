@@ -3,7 +3,7 @@
 ## Installation / 安装
 
 - Unity Package Manager (Git): **Window > Package Manager > + > Add package from git URL** and enter `https://your-host/your-plugin-repo.git`. Replace the URL with the published repository address. The repository root contains `package.json`, so no `?path=` suffix is needed. Unity requires Git to be installed locally.
-- `.unitypackage`: import the separately exported `ProjectSettingProfiles-1.0.0.unitypackage` using **Assets > Import Package > Custom Package**. In the development Unity project it is located at `Dist/ProjectSettingProfiles-1.0.0.unitypackage` and installs under `Assets/ProjectSettingProfiles/`.
+- `.unitypackage`: import the separately exported `ProjectSettingProfiles-1.1.0.unitypackage` using **Assets > Import Package > Custom Package**. In the development Unity project it is located at `Dist/ProjectSettingProfiles-1.1.0.unitypackage` and installs under `Assets/ProjectSettingProfiles/`.
 - Choose **one** installation method per project. Installing both creates duplicate editor classes and menus. Neither distribution includes your profiles in `<project>/ProjectSettingsProfiles/`.
 - The Git repository contains only the UPM package. The development Unity project keeps its `.unitypackage` export and `Tools/Export-ProjectSettingProfiles.ps1` outside this package repository.
 
@@ -22,6 +22,26 @@ Git 安装请在包管理器中直接使用插件仓库 URL，无须 `?path=`；
 
 快照递归覆盖 `ProjectSettings` 下的全部文件，包括后续插件新增到该目录的文件。其他插件若把设置保存在 `Assets`、`UserSettings`、`Library`、工程外部或内存中，则无法通用地捕获，需要该插件单独提供导出/导入接口。打包前还需安装目标平台模块并启用至少一个构建场景。
 
+### 切换完成回调
+
+通过 `ProfileSwitchEvents.AfterSwitch` 订阅统一回调。手动切换、单档案打包和批量打包均在设置与构建目标应用完成后触发；批量打包的每个档案各触发一次，且回调完成、编辑器刷新/编译稳定后才开始该档案的打包。`IsBuild` 标识是否准备打包，`ProfileIndex` 从 0 开始，`ProfileCount` 是队列总数；非打包切换的 `OutputDirectory` 为 `null`。切换失败不会触发，回调抛出异常会停止任务。其他 Editor 程序集需要引用 `ProjectSettingProfiles.Editor`，并在每次域重载后重新订阅。
+
+```csharp
+using ProjectSettingProfiles;
+using UnityEditor;
+
+[InitializeOnLoad]
+internal static class MyProfileHook
+{
+    static MyProfileHook() { ProfileSwitchEvents.AfterSwitch += OnSwitched; }
+
+    private static void OnSwitched(object sender, ProfileSwitchedEventArgs args)
+    {
+        UnityEngine.Debug.Log($"Applied {args.ProfileName} ({args.ProfileIndex + 1}/{args.ProfileCount})");
+    }
+}
+```
+
 ## English
 
 Open **Tools > Project Setting Profiles** in Unity 2022.3 or later.
@@ -36,3 +56,7 @@ Use the **Language** dropdown in the window toolbar to switch between English an
 Profiles live in `<project>/ProjectSettingsProfiles/` next to `Assets` and `ProjectSettings`. Include that directory in version control to share profiles. `Library/ProjectSettingProfiles/` only holds transient queue and rollback data. `ProjectVersion.txt` is intentionally never switched because it determines the Unity editor version.
 
 The snapshot covers every file recursively under `ProjectSettings`, including files added there by future packages. A plugin that stores its settings in `Assets`, `UserSettings`, `Library`, an external location, or only in memory cannot be captured generically; its own export/import integration would be required. Platform build modules and enabled build scenes must be present for builds.
+
+### After-switch callback
+
+Subscribe to `ProfileSwitchEvents.AfterSwitch` as shown above. It fires after a successful settings/target switch for manual switching, single builds, and **each profile** in a batch build, before that profile is built. The queue waits for the callback and any subsequent editor refresh/compilation before building. `IsBuild` identifies build operations; `ProfileIndex` is zero-based, `ProfileCount` is the queue length, and `OutputDirectory` is `null` for a switch without a build. Failed switches do not notify; an exception in a handler stops the operation. Other Editor assemblies must reference `ProjectSettingProfiles.Editor` and subscribe again after domain reload (for example via `[InitializeOnLoad]`).
